@@ -146,6 +146,13 @@ async def get_current_user_testing() -> User:
     
     return User(**test_user)
 
+# Unified dependency: honors the USE_TEST_AUTH flag in one place so every
+# route behaves consistently instead of each deciding for itself.
+async def get_authenticated_user(request: Request) -> User:
+    if settings.USE_TEST_AUTH:
+        return await get_current_user_testing()
+    return await get_current_user(request)
+
 # Optional: Get current user or return None (for optional authentication)
 async def get_current_user_optional(request: Request) -> User | None:
     """

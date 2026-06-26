@@ -1,8 +1,10 @@
 # backend/main.py
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from core.database import connect_to_mongo, close_mongo_connection
+from core.config import settings
 from contextlib import asynccontextmanager
 import logging
 
@@ -43,18 +45,15 @@ app = FastAPI(
 )
 
 # CORS Configuration
+# Use an explicit allow-list from settings. A wildcard origin ("*") is
+# incompatible with allow_credentials=True (browsers reject it) and would
+# expose the credentialed API to any site, so it is intentionally omitted.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-        "*"
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=settings.ALLOWED_METHODS,
+    allow_headers=settings.ALLOWED_HEADERS,
 )
 
 # Import and include routers
@@ -97,12 +96,13 @@ async def health_check():
 
 # Error handlers
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
+async def global_exception_handler(request: Request, exc: Exception):
+    # Log the full exception server-side, but never leak internals to clients.
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return {
-        "error": "Internal Server Error",
-        "detail": str(exc)
-    }
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal Server Error"},
+    )
 
 if __name__ == "__main__":
     import uvicorn

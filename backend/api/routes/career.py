@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from api.deps import get_current_user
+from api.deps import get_authenticated_user
 from models.schemas import User, Job
 from core.database import get_db
 from services.resume_service import parse_resume_pdf
@@ -8,7 +8,9 @@ from services.llm_service import llm
 from langchain_core.prompts import PromptTemplate
 from bson import ObjectId
 import json
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 class ResumeUploadResponse(BaseModel):
@@ -35,23 +37,26 @@ MOCK_JOBS = [
 ]
 
 @router.get("/jobs")
-async def get_jobs(current_user: User = Depends(get_current_user)):
+async def get_jobs(current_user: User = Depends(get_authenticated_user)):
     # In a real app, fetch from DB. For MVP, we return mock jobs
     return MOCK_JOBS
 
 @router.post("/upload-resume", response_model=ResumeUploadResponse)
-async def upload_resume(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
+async def upload_resume(file: UploadFile = File(...), current_user: User = Depends(get_authenticated_user)):
     try:
         content = await file.read()
         extracted_text = parse_resume_pdf(content)
         return ResumeUploadResponse(extracted_text=extracted_text)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Resume upload failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to parse resume")
 
 @router.post("/analyze-skills", response_model=SkillGapResponse)
 async def analyze_skills(
     request: ResumeJobRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_authenticated_user)
 ):
     try:
         job = next((j for j in MOCK_JOBS if str(j["_id"]) == request.job_id), None)
@@ -75,16 +80,19 @@ async def analyze_skills(
         response = llm.invoke(prompt.format(resume=request.resume_text, skills=", ".join(job["required_skills"])))
         raw = response.content.replace('```json', '').replace('```', '').strip()
         analysis = json.loads(raw)
-        
+
         return SkillGapResponse(**analysis)
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Skill analysis failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to analyze skills")
 
 @router.post("/apply", response_model=CoverLetterResponse)
 async def one_click_apply(
     request: ResumeJobRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_authenticated_user)
 ):
     try:
         job = next((j for j in MOCK_JOBS if str(j["_id"]) == request.job_id), None)
@@ -107,6 +115,9 @@ async def one_click_apply(
             cover_letter=response.content.strip(),
             status="Application Sent Successfully!"
         )
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Cover letter generation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate cover letter")

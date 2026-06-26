@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from models.schemas import User, CourseCreate, CourseResponse
-from api.deps import get_current_user, get_current_user_testing
+from api.deps import get_authenticated_user
 from services.llm_service import generate_course_content
 from services.qr_service import generate_qr_code_base64
 from core.database import get_db
@@ -38,7 +38,7 @@ class CourseDetailResponse(BaseModel):
 @router.get("/courses", response_model=List[CourseListResponse])
 async def get_professor_courses(
     request: Request,
-    current_user: User = Depends(get_current_user if not settings.USE_TEST_AUTH else get_current_user_testing)
+    current_user: User = Depends(get_authenticated_user)
 ):
     """
     Get all courses for the current professor
@@ -98,7 +98,7 @@ async def get_professor_courses(
 async def create_course(
     request: CourseCreate,
     req: Request,
-    current_user: User = Depends(get_current_user if not settings.USE_TEST_AUTH else get_current_user_testing)
+    current_user: User = Depends(get_authenticated_user)
 ):
     """
     Create a new course with AI-generated content
@@ -184,7 +184,7 @@ async def create_course(
 async def get_course_details(
     course_id: str,
     request: Request,
-    current_user: User = Depends(get_current_user if not settings.USE_TEST_AUTH else get_current_user_testing)
+    current_user: User = Depends(get_authenticated_user)
 ):
     """
     Get detailed information about a specific course
@@ -243,7 +243,7 @@ async def get_course_details(
 @router.get("/courses/{course_id}/qr")
 async def get_course_qr_code(
     course_id: str,
-    current_user: User = Depends(get_current_user if not settings.USE_TEST_AUTH else get_current_user_testing)
+    current_user: User = Depends(get_authenticated_user)
 ):
     """
     Get QR code for a specific course
@@ -306,7 +306,7 @@ async def get_course_qr_code(
 @router.delete("/courses/{course_id}")
 async def delete_course(
     course_id: str,
-    current_user: User = Depends(get_current_user if not settings.USE_TEST_AUTH else get_current_user_testing)
+    current_user: User = Depends(get_authenticated_user)
 ):
     """
     Delete a course (only if owned by the professor)
