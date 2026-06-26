@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     
     # Gemini AI
     GEMINI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-pro"  # CHANGED: Use a valid model
+    GEMINI_MODEL: str = "gemini-2.0-flash"  # current GA model; gemini-pro is retired
     GEMINI_TEMPERATURE: float = 0.7
     
     # Clerk Authentication

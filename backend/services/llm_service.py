@@ -17,15 +17,14 @@ try:
     if not settings.GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is not set in environment variables")
     
-    # Use gemini-pro which is widely available
-    MODEL_NAME = "gemini-pro"
-    
+    # Use the model configured in settings (gemini-pro is retired)
+    MODEL_NAME = settings.GEMINI_MODEL
+
     llm = ChatGoogleGenerativeAI(
         model=MODEL_NAME,
         google_api_key=settings.GEMINI_API_KEY,
         temperature=settings.GEMINI_TEMPERATURE,
-        convert_system_message_to_human=True,
-        timeout=120,  # Increased timeout for gemini-pro
+        timeout=120,
         max_retries=3,
     )
     logger.info(f"✅ Gemini AI initialized successfully with model: {MODEL_NAME}")
@@ -109,7 +108,7 @@ async def generate_course_content(request_text: str) -> CourseGenerationOutput:
         
         # Invoke the LLM
         try:
-            logger.info("⏳ Calling Gemini API with model: gemini-pro...")
+            logger.info(f"⏳ Calling Gemini API with model: {MODEL_NAME}...")
             response = llm.invoke(_input.to_string())
             logger.info(f"✅ LLM response received ({len(response.content)} characters)")
         except Exception as e:

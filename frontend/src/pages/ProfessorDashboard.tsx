@@ -297,7 +297,7 @@ export default function ProfessorDashboard() {
                     const fallback = document.createElement('div');
                     fallback.className = 'w-64 h-64 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400';
                     fallback.textContent = 'QR Code unavailable';
-                    (e.target as HTMLImageElement).parentNode?.replaceChild(fallback, e.target);
+                    (e.target as HTMLImageElement).parentNode?.replaceChild(fallback, e.target as HTMLImageElement);
                   }}
                 />
               ) : (

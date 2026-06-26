@@ -1,6 +1,6 @@
 // frontend/src/pages/ProfessorCourseDetail.tsx
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAuth } from '@clerk/clerk-react';
@@ -17,7 +17,6 @@ import {
   Share2,
   Users,
   Calendar,
-  Clock,
   Copy,
   Check
 } from 'lucide-react';
@@ -89,7 +88,6 @@ export default function ProfessorCourseDetail() {
 
   const generateQRCode = async () => {
     try {
-      const token = await getToken();
       // Generate QR code for student access
       const studentUrl = `${window.location.origin}/student/course/${courseId}`;
       
@@ -223,7 +221,7 @@ export default function ProfessorCourseDetail() {
                       const fallback = document.createElement('div');
                       fallback.className = 'w-32 h-32 bg-slate-700 rounded-lg flex items-center justify-center text-slate-400';
                       fallback.textContent = 'QR Code';
-                      (e.target as HTMLImageElement).parentNode?.replaceChild(fallback, e.target);
+                      (e.target as HTMLImageElement).parentNode?.replaceChild(fallback, e.target as HTMLImageElement);
                     }}
                   />
                 </div>

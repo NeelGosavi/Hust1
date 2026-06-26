@@ -13,3 +13,7 @@ qrcode
 Pillow
 google-cloud-documentai
 python-dotenv
+langchain-core
+langchain-community
+langchain-text-splitters
+certifi
