@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+motor
+pydantic
+pydantic-settings
+python-multipart
+python-jose[cryptography]
+clerk-backend-api
+langchain
+langchain-google-genai
+faiss-cpu
+qrcode
+Pillow
+google-cloud-documentai
+python-dotenv
