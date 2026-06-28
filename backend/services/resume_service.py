@@ -1,25 +1,47 @@
-from google.cloud import documentai_v1 as documentai
-from core.config import settings
-import os
+"""Résumé parsing.
+
+Extracts text from an uploaded PDF résumé using pypdf (a lightweight, pure-Python
+PDF reader). Works for normal text-based PDFs; scanned/image-only PDFs have no
+text layer and will raise a ValueError the caller can surface as a 400.
+"""
+
+import io
+import logging
+from pypdf import PdfReader
+
+logger = logging.getLogger(__name__)
+
 
 def parse_resume_pdf(file_content: bytes) -> str:
+    """Return the extracted text of a PDF résumé.
+
+    Raises:
+        ValueError: if the bytes are not a readable PDF, or if no text can be
+            extracted (e.g. a scanned image with no text layer).
     """
-    Parses a PDF resume using Google Cloud Document AI.
-    Note: Requires GOOGLE_APPLICATION_CREDENTIALS to be set and a valid processor ID.
-    For this MVP, if the processor or credentials fail, we fallback to a mock extraction.
-    """
-    # In a real environment, you'd specify the PROJECT_ID, LOCATION, and PROCESSOR_ID.
-    # We will use a try-catch to mock the response if GCP isn't fully configured.
+    if not file_content:
+        raise ValueError("The uploaded file is empty.")
+
     try:
-        if not settings.GOOGLE_APPLICATION_CREDENTIALS or not os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
-            raise Exception("Credentials not found")
-            
-        client = documentai.DocumentProcessorServiceClient()
-        # This requires actual PROJECT_ID and PROCESSOR_ID which the user must define.
-        # We'll simulate the extraction for the MVP if it's not configured.
-        raise Exception("GCP Processor details not configured for MVP")
-        
+        reader = PdfReader(io.BytesIO(file_content))
     except Exception as e:
-        print(f"Falling back to mock parser: {e}")
-        # Mock extracted text for the MVP demo
-        return "Skills: Python, React, JavaScript, Machine Learning, Fast API, Data Analysis. Experience: 2 years building web apps. Education: BSc Computer Science."
+        logger.warning(f"Could not read PDF: {e}")
+        raise ValueError("Could not read the file. Please upload a valid PDF.")
+
+    parts = []
+    for page in reader.pages:
+        try:
+            text = page.extract_text() or ""
+        except Exception as e:
+            logger.warning(f"Failed to extract text from a page: {e}")
+            text = ""
+        if text.strip():
+            parts.append(text.strip())
+
+    full_text = "\n\n".join(parts).strip()
+    if not full_text:
+        raise ValueError(
+            "No text could be extracted from this PDF. It may be a scanned "
+            "image — please upload a text-based PDF."
+        )
+    return full_text

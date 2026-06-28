@@ -156,10 +156,16 @@ async def delete_job(job_id: str, current_user: User = Depends(get_authenticated
 
 @router.post("/upload-resume", response_model=ResumeUploadResponse)
 async def upload_resume(file: UploadFile = File(...), current_user: User = Depends(get_authenticated_user)):
+    filename = (file.filename or "").lower()
+    if not (filename.endswith(".pdf") or file.content_type == "application/pdf"):
+        raise HTTPException(status_code=400, detail="Please upload a PDF file")
     try:
         content = await file.read()
         extracted_text = parse_resume_pdf(content)
         return ResumeUploadResponse(extracted_text=extracted_text)
+    except ValueError as e:
+        # Unreadable / scanned / empty PDF — a client problem, not a server error.
+        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
