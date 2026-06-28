@@ -36,6 +36,29 @@ class ChatResponse(BaseModel):
     conversation_id: str
 
 
+class ConversationResponse(BaseModel):
+    conversation_id: Optional[str] = None
+    messages: List[dict] = []
+
+
+class QuizSubmitRequest(BaseModel):
+    answers: List[str]  # selected option text per question, aligned by index
+
+
+class QuizResultItem(BaseModel):
+    question: str
+    your_answer: Optional[str] = None
+    correct_answer: str
+    is_correct: bool
+
+
+class QuizSubmitResponse(BaseModel):
+    score: int
+    total: int
+    percentage: float
+    results: List[QuizResultItem]
+
+
 # ---------- Helpers ----------
 
 async def _ensure_enrollment(db, student_id: str, course_id: str) -> None:
@@ -287,6 +310,112 @@ async def chat_with_tutor(
     except Exception as e:
         logger.error(f"Error in tutor chat for course {course_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process your question")
+
+
+@router.get("/course/{course_id}/chat", response_model=ConversationResponse)
+async def get_chat_history(
+    course_id: str,
+    current_user: User = Depends(get_authenticated_user),
+):
+    """Return the saved tutor conversation for this (student, course)."""
+    if not ObjectId.is_valid(course_id):
+        raise HTTPException(status_code=400, detail="Invalid course ID format")
+    try:
+        db = get_db()
+        convo = await db.conversations.find_one(
+            {"student_id": current_user.clerk_id, "course_id": course_id}
+        )
+        if not convo:
+            return ConversationResponse(conversation_id=None, messages=[])
+        return ConversationResponse(
+            conversation_id=str(convo["_id"]),
+            messages=convo.get("messages", []),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching chat history for {course_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch chat history")
+
+
+# ---------- Quiz ----------
+
+@router.post("/course/{course_id}/quiz/submit", response_model=QuizSubmitResponse)
+async def submit_quiz(
+    course_id: str,
+    body: QuizSubmitRequest,
+    current_user: User = Depends(get_authenticated_user),
+):
+    """Score a quiz submission, record the result, and advance course progress.
+
+    `answers[i]` is the option text the student selected for question i.
+    Course `progress` never regresses; `completed` becomes true at >= 70%.
+    """
+    if not ObjectId.is_valid(course_id):
+        raise HTTPException(status_code=400, detail="Invalid course ID format")
+    try:
+        db = get_db()
+        course = await db.courses.find_one({"_id": ObjectId(course_id), "is_published": True})
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+
+        quiz = course.get("quiz", [])
+        if not quiz:
+            raise HTTPException(status_code=400, detail="This course has no quiz")
+
+        results: List[QuizResultItem] = []
+        score = 0
+        for i, q in enumerate(quiz):
+            correct = q.get("answer", "")
+            your = body.answers[i] if i < len(body.answers) else None
+            is_correct = your is not None and your == correct
+            if is_correct:
+                score += 1
+            results.append(QuizResultItem(
+                question=q.get("question", ""),
+                your_answer=your,
+                correct_answer=correct,
+                is_correct=is_correct,
+            ))
+
+        total = len(quiz)
+        percentage = round(score / total * 100, 1) if total else 0.0
+        now = datetime.utcnow()
+
+        await db.quiz_results.insert_one({
+            "student_id": current_user.clerk_id,
+            "course_id": course_id,
+            "score": score,
+            "total": total,
+            "percentage": percentage,
+            "answers": body.answers,
+            "submitted_at": now,
+        })
+
+        # Submitting the quiz implies enrollment; advance progress (never down).
+        await _ensure_enrollment(db, current_user.clerk_id, course_id)
+        enrollment = await db.enrollments.find_one(
+            {"student_id": current_user.clerk_id, "course_id": course_id}
+        )
+        prev_progress = enrollment.get("progress", 0.0) if enrollment else 0.0
+        prev_completed = enrollment.get("completed", False) if enrollment else False
+        await db.enrollments.update_one(
+            {"student_id": current_user.clerk_id, "course_id": course_id},
+            {"$set": {
+                "progress": max(prev_progress, percentage),
+                "completed": prev_completed or percentage >= 70,
+                "updated_at": now,
+            }},
+        )
+
+        return QuizSubmitResponse(
+            score=score, total=total, percentage=percentage, results=results
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting quiz for {course_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to submit quiz")
 
 
 # ---------- Dashboard ----------

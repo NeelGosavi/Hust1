@@ -140,6 +140,9 @@ async def create_indexes():
             [("student_id", 1), ("course_id", 1)]
         )
 
+        # Quiz results: a student's quiz submissions per course.
+        await db.quiz_results.create_index([("student_id", 1), ("course_id", 1)])
+
         # Practice problems (DSA / system design / interview) + filtering.
         await db.practice_problems.create_index("category")
         await db.practice_problems.create_index([("category", 1), ("difficulty", 1)])
