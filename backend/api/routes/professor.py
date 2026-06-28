@@ -140,7 +140,7 @@ async def create_course(
             "quiz": [q.dict() if hasattr(q, 'dict') else q for q in content.quiz],
             "created_at": now,
             "updated_at": now,
-            "is_published": False,
+            "is_published": True,  # published so students can discover/enroll
             "enrollment_count": 0
         }
         

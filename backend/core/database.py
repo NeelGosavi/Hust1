@@ -126,7 +126,20 @@ async def create_indexes():
             await db.applications.create_index("student_id")
             await db.applications.create_index("job_id")
             await db.applications.create_index("status")
-        
+
+        # Enrollments: one row per (student, course); the unique compound
+        # index makes enroll idempotent and prevents duplicate enrollments.
+        # Created unconditionally so the collection exists from first boot.
+        await db.enrollments.create_index(
+            [("student_id", 1), ("course_id", 1)], unique=True
+        )
+        await db.enrollments.create_index("student_id")
+
+        # Conversations: one row per (student, course) tutor thread.
+        await db.conversations.create_index(
+            [("student_id", 1), ("course_id", 1)]
+        )
+
         logger.info("✅ Database indexes created successfully")
         
     except Exception as e:

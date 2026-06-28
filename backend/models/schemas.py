@@ -84,6 +84,34 @@ class Job(BaseModel):
         json_encoders={ObjectId: str}
     )
 
+class Enrollment(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    student_id: str
+    course_id: str
+    enrolled_at: datetime = Field(default_factory=datetime.utcnow)
+    progress: float = 0.0
+    completed: bool = False
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
+
+class Conversation(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    student_id: str
+    course_id: str
+    messages: List[Dict[str, Any]] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
+
 class Application(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     student_id: str
