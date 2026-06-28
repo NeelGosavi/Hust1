@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
 from api.deps import get_authenticated_user
 from models.schemas import User
@@ -52,6 +52,30 @@ class SkillGapResponse(BaseModel):
 class CoverLetterResponse(BaseModel):
     cover_letter: str
     status: str
+    application_id: str
+
+
+class ApplicationResponse(BaseModel):
+    id: str
+    job_id: str
+    job_title: str
+    company: str
+    status: str
+    created_at: Optional[str] = None
+    cover_letter: str
+
+
+class ApplicantResponse(BaseModel):
+    application_id: str
+    student_id: str
+    student_name: Optional[str] = None
+    student_email: Optional[str] = None
+    status: str
+    created_at: Optional[str] = None
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status: Literal["pending", "accepted", "rejected"]
 
 
 # ---------- Helpers ----------
@@ -236,10 +260,31 @@ async def one_click_apply(
             company=job.get("company", ""),
             resume=request.resume_text,
         ))
+        cover_letter = response.content.strip()
+
+        # Persist the application (one per student+job; re-applying updates it).
+        now = datetime.utcnow()
+        await db.applications.update_one(
+            {"student_id": current_user.clerk_id, "job_id": request.job_id},
+            {
+                "$set": {"cover_letter": cover_letter, "updated_at": now},
+                "$setOnInsert": {
+                    "student_id": current_user.clerk_id,
+                    "job_id": request.job_id,
+                    "status": "pending",
+                    "created_at": now,
+                },
+            },
+            upsert=True,
+        )
+        application = await db.applications.find_one(
+            {"student_id": current_user.clerk_id, "job_id": request.job_id}
+        )
 
         return CoverLetterResponse(
-            cover_letter=response.content.strip(),
-            status="Application Sent Successfully!"
+            cover_letter=cover_letter,
+            status="Application Sent Successfully!",
+            application_id=str(application["_id"]),
         )
 
     except HTTPException:
@@ -247,3 +292,104 @@ async def one_click_apply(
     except Exception as e:
         logger.error(f"Cover letter generation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate cover letter")
+
+
+# ---------- Applications ----------
+
+@router.get("/applications", response_model=List[ApplicationResponse])
+async def my_applications(current_user: User = Depends(get_authenticated_user)):
+    """The current student's job applications, joined with job info."""
+    try:
+        db = get_db()
+        apps = await db.applications.find(
+            {"student_id": current_user.clerk_id}
+        ).sort("created_at", -1).to_list(length=200)
+        if not apps:
+            return []
+
+        job_oids = [ObjectId(a["job_id"]) for a in apps if ObjectId.is_valid(a["job_id"])]
+        jobs = await db.jobs.find({"_id": {"$in": job_oids}}).to_list(length=len(job_oids))
+        jobs_by_id = {str(j["_id"]): j for j in jobs}
+
+        out = []
+        for a in apps:
+            job = jobs_by_id.get(a["job_id"], {})
+            out.append(ApplicationResponse(
+                id=str(a["_id"]),
+                job_id=a["job_id"],
+                job_title=job.get("title", "(removed job)"),
+                company=job.get("company", ""),
+                status=a.get("status", "pending"),
+                created_at=a.get("created_at").isoformat() if a.get("created_at") else None,
+                cover_letter=a.get("cover_letter", ""),
+            ))
+        return out
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching applications: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch applications")
+
+
+@router.get("/jobs/{job_id}/applicants", response_model=List[ApplicantResponse])
+async def job_applicants(job_id: str, current_user: User = Depends(get_authenticated_user)):
+    """Applicants for a job (professors only), joined with student info."""
+    _require_professor(current_user)
+    try:
+        db = get_db()
+        await _get_job_or_404(db, job_id)
+
+        apps = await db.applications.find(
+            {"job_id": job_id}
+        ).sort("created_at", -1).to_list(length=500)
+        if not apps:
+            return []
+
+        student_ids = list({a["student_id"] for a in apps})
+        users = await db.users.find(
+            {"clerk_id": {"$in": student_ids}}
+        ).to_list(length=len(student_ids))
+        users_by_id = {u["clerk_id"]: u for u in users}
+
+        return [
+            ApplicantResponse(
+                application_id=str(a["_id"]),
+                student_id=a["student_id"],
+                student_name=users_by_id.get(a["student_id"], {}).get("name"),
+                student_email=users_by_id.get(a["student_id"], {}).get("email"),
+                status=a.get("status", "pending"),
+                created_at=a.get("created_at").isoformat() if a.get("created_at") else None,
+            )
+            for a in apps
+        ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching applicants for {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch applicants")
+
+
+@router.put("/applications/{application_id}/status")
+async def update_application_status(
+    application_id: str,
+    body: ApplicationStatusUpdate,
+    current_user: User = Depends(get_authenticated_user),
+):
+    """Accept/reject an application (professors only)."""
+    _require_professor(current_user)
+    if not ObjectId.is_valid(application_id):
+        raise HTTPException(status_code=400, detail="Invalid application ID format")
+    try:
+        db = get_db()
+        result = await db.applications.update_one(
+            {"_id": ObjectId(application_id)},
+            {"$set": {"status": body.status, "updated_at": datetime.utcnow()}},
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Application not found")
+        return {"application_id": application_id, "status": body.status}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating application {application_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update application")

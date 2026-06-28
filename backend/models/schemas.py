@@ -151,6 +151,7 @@ class Application(BaseModel):
     cover_letter: str
     status: str  # "pending", "accepted", "rejected"
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = ConfigDict(
         populate_by_name=True,

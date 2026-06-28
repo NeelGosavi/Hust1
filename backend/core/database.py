@@ -121,10 +121,13 @@ async def create_indexes():
         await db.jobs.create_index("company")
         await db.jobs.create_index([("created_at", -1)])
 
-        if "applications" in collections:
-            await db.applications.create_index("student_id")
-            await db.applications.create_index("job_id")
-            await db.applications.create_index("status")
+        # Applications: one per (student, job); unique so re-applying updates
+        # rather than duplicates. Created unconditionally.
+        await db.applications.create_index(
+            [("student_id", 1), ("job_id", 1)], unique=True
+        )
+        await db.applications.create_index("job_id")
+        await db.applications.create_index("status")
 
         # Enrollments: one row per (student, course); the unique compound
         # index makes enroll idempotent and prevents duplicate enrollments.
