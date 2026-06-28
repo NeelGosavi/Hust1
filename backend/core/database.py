@@ -118,10 +118,9 @@ async def create_indexes():
             await db.users.create_index("clerk_id", unique=True)
             await db.users.create_index("email", unique=True)
         
-        if "jobs" in collections:
-            await db.jobs.create_index("company")
-            await db.jobs.create_index([("created_at", -1)])
-        
+        await db.jobs.create_index("company")
+        await db.jobs.create_index([("created_at", -1)])
+
         if "applications" in collections:
             await db.applications.create_index("student_id")
             await db.applications.create_index("job_id")
