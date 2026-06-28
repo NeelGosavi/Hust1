@@ -58,11 +58,12 @@ app.add_middleware(
 
 # Import and include routers
 try:
-    from api.routes import professor, student, career
-    
+    from api.routes import professor, student, career, practice
+
     app.include_router(professor.router, prefix="/api/professor", tags=["Professor"])
     app.include_router(student.router, prefix="/api/student", tags=["Student"])
     app.include_router(career.router, prefix="/api/career", tags=["Career"])
+    app.include_router(practice.router, prefix="/api/practice", tags=["Practice"])
     logger.info("✅ All routers loaded successfully")
 except ImportError as e:
     logger.warning(f"⚠️ Could not import some routers: {e}")

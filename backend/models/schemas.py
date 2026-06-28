@@ -112,6 +112,38 @@ class Conversation(BaseModel):
         json_encoders={ObjectId: str}
     )
 
+class PracticeProblem(BaseModel):
+    """A practice item — covers DSA/LeetCode, system design, and interview prep,
+    distinguished by `category`."""
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    category: str  # "dsa" | "system_design" | "interview"
+    title: str
+    difficulty: str  # "easy" | "medium" | "hard"
+    topics: List[str] = []
+    description: str = ""
+    external_url: Optional[str] = None  # e.g. a leetcode.com link
+    created_by: Optional[str] = None  # professor clerk_id
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
+
+class PracticeProgress(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    student_id: str
+    problem_id: str
+    status: str  # "todo" | "attempted" | "solved"
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
+
 class Application(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     student_id: str

@@ -140,6 +140,16 @@ async def create_indexes():
             [("student_id", 1), ("course_id", 1)]
         )
 
+        # Practice problems (DSA / system design / interview) + filtering.
+        await db.practice_problems.create_index("category")
+        await db.practice_problems.create_index([("category", 1), ("difficulty", 1)])
+        await db.practice_problems.create_index("topics")
+
+        # Practice progress: one row per (student, problem).
+        await db.practice_progress.create_index(
+            [("student_id", 1), ("problem_id", 1)], unique=True
+        )
+
         logger.info("✅ Database indexes created successfully")
         
     except Exception as e:
