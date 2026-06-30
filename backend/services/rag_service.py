@@ -7,7 +7,7 @@ from core.config import settings
 # Global dictionary to cache FAISS vector stores in memory for MVP (isolated per course)
 course_vector_stores = {}
 
-embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=settings.GEMINI_API_KEY)
+embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=settings.GEMINI_API_KEY)
 llm = ChatGoogleGenerativeAI(model=settings.GEMINI_MODEL, google_api_key=settings.GEMINI_API_KEY)
 
 # Define the prompt template for the AI Tutor
