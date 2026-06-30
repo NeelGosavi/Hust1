@@ -237,8 +237,12 @@ async def get_course(
             if professor:
                 professor_name = professor.get("name", "Unknown")
 
-        # Warm the tutor's context for this course.
-        await initialize_course_rag(course_id, course["script"])
+        # Warm the tutor's context for this course (best-effort: don't fail the
+        # course view if the embedding/AI service is unavailable).
+        try:
+            await initialize_course_rag(course_id, course["script"])
+        except Exception as e:
+            logger.warning(f"RAG init failed for course {course_id} (tutor may be degraded): {e}")
 
         return {
             "id": str(course["_id"]),
