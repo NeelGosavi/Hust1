@@ -1,9 +1,8 @@
-// frontend/src/pages/ProfessorDashboard.tsx
-
+// src/pages/ProfessorDashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
 import { useAuth } from '@clerk/clerk-react';
-import { Loader2, Plus, X, Calendar, BookOpen, Eye, ChevronRight, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, X, Calendar, BookOpen, Eye, ChevronRight, AlertCircle, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Course {
@@ -20,7 +19,7 @@ interface CourseResponse {
   title: string;
 }
 
-// Create Course Modal Component (inside same file)
+// Create Course Modal Component
 function CreateCourseModal({ 
   isOpen, 
   onClose, 
@@ -48,7 +47,6 @@ function CreateCourseModal({
     
     try {
       await onGenerate({ title, description, prompt });
-      // Reset form on success
       setTitle('');
       setDescription('');
       setPrompt('');
@@ -63,7 +61,6 @@ function CreateCourseModal({
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700 shadow-2xl">
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          {/* Header */}
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-semibold text-white">Create New AI Course</h2>
@@ -79,14 +76,12 @@ function CreateCourseModal({
             </button>
           </div>
 
-          {/* Error Display */}
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
               <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
 
-          {/* Course Title */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Course Title <span className="text-red-400">*</span>
@@ -101,7 +96,6 @@ function CreateCourseModal({
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Short Description <span className="text-red-400">*</span>
@@ -116,7 +110,6 @@ function CreateCourseModal({
             />
           </div>
 
-          {/* Prompt */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               AI Generation Prompt <span className="text-red-400">*</span>
@@ -135,7 +128,6 @@ function CreateCourseModal({
             </p>
           </div>
 
-          {/* Submit Button */}
           <button 
             type="submit" 
             disabled={isLoading || !title || !description || !prompt}
@@ -151,7 +143,6 @@ function CreateCourseModal({
             )}
           </button>
 
-          {/* Progress Bar */}
           {isLoading && (
             <div className="mt-2">
               <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
@@ -176,6 +167,7 @@ export default function ProfessorDashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [courseData, setCourseData] = useState<CourseResponse | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { isSignedIn, getToken } = useAuth();
 
@@ -190,7 +182,7 @@ export default function ProfessorDashboard() {
         return;
       }
 
-      const res = await apiClient.get('/api/professor/courses', {
+      const res = await apiClient.get('/professor/courses', {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -221,7 +213,7 @@ export default function ProfessorDashboard() {
         throw new Error('Authentication failed. Please sign in again.');
       }
 
-      const res = await apiClient.post('/api/professor/create-course', data, {
+      const res = await apiClient.post('/professor/create-course', data, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -246,6 +238,42 @@ export default function ProfessorDashboard() {
 
   const handleCourseClick = (courseId: string) => {
     navigate(`/professor/course/${courseId}`);
+  };
+
+  // ✅ NEW: Delete course function
+  const handleDeleteCourse = async (courseId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation to course detail
+    
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete this course? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(courseId);
+    try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error('Authentication failed. Please sign in again.');
+      }
+
+      await apiClient.delete(`/professor/courses/${courseId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      // Remove course from state
+      setCourses(courses.filter(course => course.id !== courseId));
+      
+      // Show success message (optional)
+      setError(null);
+    } catch (error: any) {
+      console.error("Failed to delete course:", error);
+      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to delete course. Please try again.";
+      setError(errorMessage);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -273,7 +301,6 @@ export default function ProfessorDashboard() {
     );
   }
 
-  // Success State
   if (courseData) {
     return (
       <div className="max-w-4xl mx-auto px-4">
@@ -336,7 +363,6 @@ export default function ProfessorDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto px-4">
-      {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-4xl font-bold text-white">Professor Dashboard</h1>
@@ -353,7 +379,6 @@ export default function ProfessorDashboard() {
         )}
       </div>
 
-      {/* Error Display */}
       {error && (
         <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
           <div className="flex items-start gap-3">
@@ -372,7 +397,6 @@ export default function ProfessorDashboard() {
         </div>
       )}
 
-      {/* Create Course Modal */}
       <CreateCourseModal
         isOpen={showCreate}
         onClose={() => {
@@ -383,7 +407,6 @@ export default function ProfessorDashboard() {
         isLoading={isGenerating}
       />
 
-      {/* Course List */}
       {!showCreate && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
@@ -420,6 +443,19 @@ export default function ProfessorDashboard() {
                       {course.title}
                     </h3>
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* ✅ NEW: Delete Button */}
+                      <button
+                        onClick={(e) => handleDeleteCourse(course.id, e)}
+                        className="p-1.5 text-slate-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 rounded-lg hover:bg-red-500/10"
+                        title="Delete course"
+                        disabled={deletingId === course.id}
+                      >
+                        {deletingId === course.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
                       <Eye className="w-4 h-4 text-slate-400 group-hover:text-indigo-400 transition-colors" />
                       <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-400 transition-colors" />
                     </div>

@@ -1,58 +1,52 @@
-// frontend/src/api/client.ts
-
+// src/api/client.ts
 import axios from 'axios';
 
-// Use environment variable for API URL
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-export const apiClient = axios.create({
-  baseURL: API_URL,
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout
 });
 
-// Add response interceptor for better error handling
-apiClient.interceptors.response.use(
+// Request interceptor for auth
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response interceptor for error handling
+api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response) {
-      // Server responded with error
-      console.error('API Error:', {
-        status: error.response.status,
-        data: error.response.data,
-        url: error.config?.url
-      });
-    } else if (error.request) {
-      // No response received
-      console.error('Network Error:', error.message);
-    } else {
-      // Request setup error
-      console.error('Request Error:', error.message);
+    if (error.response?.status === 401) {
+      // Handle unauthorized
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
-export const setupInterceptors = (getToken: () => Promise<string | null>) => {
-  const interceptorId = apiClient.interceptors.request.use(
+// Export as both default and named export for compatibility
+export default api;
+export { api as apiClient };
+
+// Setup interceptors function for Clerk auth
+export const setupInterceptors = (fetchToken: () => Promise<string | null>) => {
+  const interceptorId = api.interceptors.request.use(
     async (config) => {
-      try {
-        const token = await getToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      } catch (error) {
-        console.error('Error fetching token:', error);
-        return config;
+      const token = await fetchToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
+      return config;
     },
     (error) => {
       return Promise.reject(error);
     }
   );
-  
   return interceptorId;
 };

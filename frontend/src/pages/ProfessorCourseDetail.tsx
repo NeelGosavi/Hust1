@@ -72,7 +72,7 @@ export default function ProfessorCourseDetail() {
     setError(null);
     try {
       const token = await getToken();
-      const res = await apiClient.get(`/api/professor/courses/${courseId}`, {
+      const res = await apiClient.get(`/professor/courses/${courseId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
