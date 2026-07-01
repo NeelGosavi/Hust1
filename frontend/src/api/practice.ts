@@ -16,6 +16,9 @@ export const practiceApi = {
   
   updateProgress: (id: string, status: 'todo' | 'attempted' | 'solved') =>
     apiClient.put(`/practice/problems/${id}/progress`, { status }),
+
+  solveWithAI: (id: string) =>
+    apiClient.post(`/practice/problems/${id}/solve`),
   
   getStats: () =>
     apiClient.get('/practice/stats'),

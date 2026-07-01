@@ -1,20 +1,15 @@
 // src/pages/StudentPracticeProblem.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { practiceApi } from '../api/practice';
-import { 
-  ArrowLeft, 
-  CheckCircle, 
-  Circle, 
-  Clock, 
-  Code, 
-  Play, 
-  Send,
-  ChevronDown,
-  ChevronRight,
-  AlertCircle,
-  Check,
-  X
+import {
+  ArrowLeft,
+  CheckCircle,
+  Circle,
+  Clock,
+  ExternalLink,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 
 interface Problem {
@@ -22,38 +17,41 @@ interface Problem {
   title: string;
   description: string;
   category: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  difficulty: string; // "easy" | "medium" | "hard"
   status: 'todo' | 'attempted' | 'solved';
-  examples: Array<{
-    input: string;
-    output: string;
-    explanation?: string;
-  }>;
-  constraints: string[];
   topics: string[];
-  acceptanceRate: number;
+  external_url?: string | null;
 }
+
+const difficultyConfig: Record<string, { color: string; bg: string }> = {
+  easy: { color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  medium: { color: 'text-amber-600', bg: 'bg-amber-50' },
+  hard: { color: 'text-red-600', bg: 'bg-red-50' },
+};
+
+const statusConfig = {
+  solved: { icon: CheckCircle, label: 'Solved', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  attempted: { icon: Clock, label: 'Attempted', color: 'text-amber-600', bg: 'bg-amber-50' },
+  todo: { icon: Circle, label: 'To Do', color: 'text-gray-400', bg: 'bg-gray-50' },
+};
 
 export default function StudentPracticeProblem() {
   const { problemId } = useParams<{ problemId: string }>();
   const [problem, setProblem] = useState<Problem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [code, setCode] = useState('');
-  const [output, setOutput] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [showExamples, setShowExamples] = useState(true);
+
+  const [solving, setSolving] = useState(false);
+  const [solution, setSolution] = useState<string | null>(null);
+  const [solveError, setSolveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (problemId) {
-      fetchProblem();
-    }
+    if (problemId) fetchProblem();
   }, [problemId]);
 
   const fetchProblem = async () => {
     try {
       const response = await practiceApi.getProblem(problemId!);
       setProblem(response.data);
-      setCode('// Write your solution here\n\nfunction solution(input) {\n  // Your code here\n  return input;\n}');
     } catch (error) {
       console.error('Error fetching problem:', error);
     } finally {
@@ -61,24 +59,29 @@ export default function StudentPracticeProblem() {
     }
   };
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setOutput('✅ All test cases passed!');
-    } catch (error) {
-      setOutput('❌ Some test cases failed. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleStatusUpdate = async (status: 'todo' | 'attempted' | 'solved') => {
     try {
       await practiceApi.updateProgress(problemId!, status);
-      setProblem(prev => prev ? { ...prev, status } : null);
+      setProblem(prev => (prev ? { ...prev, status } : null));
     } catch (error) {
       console.error('Error updating status:', error);
+    }
+  };
+
+  const handleSolveWithAI = async () => {
+    setSolving(true);
+    setSolveError(null);
+    setSolution(null);
+    try {
+      const response = await practiceApi.solveWithAI(problemId!);
+      setSolution(response.data.solution);
+      // Trying the AI solution counts as attempting the problem.
+      if (problem?.status === 'todo') handleStatusUpdate('attempted');
+    } catch (error) {
+      console.error('Error solving with AI:', error);
+      setSolveError('The AI solver failed. Please try again.');
+    } finally {
+      setSolving(false);
     }
   };
 
@@ -98,23 +101,13 @@ export default function StudentPracticeProblem() {
     );
   }
 
-  const difficultyConfig = {
-    Easy: { color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    Medium: { color: 'text-amber-600', bg: 'bg-amber-50' },
-    Hard: { color: 'text-red-600', bg: 'bg-red-50' }
-  };
-
-  const statusConfig = {
-    solved: { icon: CheckCircle, label: 'Solved', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    attempted: { icon: Clock, label: 'Attempted', color: 'text-amber-600', bg: 'bg-amber-50' },
-    todo: { icon: Circle, label: 'To Do', color: 'text-gray-400', bg: 'bg-gray-50' }
-  };
-
-  const StatusIcon = statusConfig[problem.status].icon;
+  const diff = difficultyConfig[(problem.difficulty || '').toLowerCase()] || difficultyConfig.easy;
+  const status = statusConfig[problem.status] || statusConfig.todo;
+  const StatusIcon = status.icon;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <Link to="/student/practice" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm">
@@ -124,157 +117,81 @@ export default function StudentPracticeProblem() {
           <div className="flex-1" />
           <button
             onClick={() => {
-              const statusMap = { todo: 'attempted', attempted: 'solved', solved: 'todo' };
-              handleStatusUpdate(statusMap[problem.status] as any);
+              const next = { todo: 'attempted', attempted: 'solved', solved: 'todo' } as const;
+              handleStatusUpdate(next[problem.status]);
             }}
-            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusConfig[problem.status].bg} ${statusConfig[problem.status].color}`}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${status.bg} ${status.color}`}
           >
             <StatusIcon className="w-4 h-4" />
-            {statusConfig[problem.status].label}
+            {status.label}
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column - Problem Description */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h1 className="text-xl font-bold text-gray-900">{problem.title}</h1>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${difficultyConfig[problem.difficulty].bg} ${difficultyConfig[problem.difficulty].color}`}>
-                  {problem.difficulty}
-                </span>
-                <span className="text-xs text-gray-500 px-2.5 py-0.5 bg-gray-100 rounded-full">
-                  {problem.category}
-                </span>
-                <span className="text-xs text-gray-500 px-2.5 py-0.5 bg-blue-50 rounded-full">
-                  {problem.acceptanceRate}% acceptance
-                </span>
-                {problem.topics.slice(0, 3).map(topic => (
-                  <span key={topic} className="text-xs text-gray-500 px-2.5 py-0.5 bg-gray-50 rounded-full">
-                    {topic}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-4">
-                <p className="text-gray-600 leading-relaxed">{problem.description}</p>
-              </div>
-
-              {/* Examples */}
-              {problem.examples && problem.examples.length > 0 && (
-                <div className="mt-4">
-                  <button
-                    onClick={() => setShowExamples(!showExamples)}
-                    className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900"
-                  >
-                    {showExamples ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    Examples
-                  </button>
-                  {showExamples && (
-                    <div className="mt-3 space-y-3">
-                      {problem.examples.map((example, index) => (
-                        <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                          <div className="text-sm">
-                            <span className="font-medium text-gray-700">Input:</span>
-                            <code className="ml-2 bg-gray-200 px-2 py-0.5 rounded text-gray-700 font-mono">{example.input}</code>
-                          </div>
-                          <div className="text-sm mt-1">
-                            <span className="font-medium text-gray-700">Output:</span>
-                            <code className="ml-2 bg-gray-200 px-2 py-0.5 rounded text-gray-700 font-mono">{example.output}</code>
-                          </div>
-                          {example.explanation && (
-                            <div className="text-sm mt-1 text-gray-500">
-                              <span className="font-medium">Explanation:</span> {example.explanation}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Constraints */}
-              {problem.constraints && problem.constraints.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Constraints</h3>
-                  <ul className="space-y-1">
-                    {problem.constraints.map((constraint, index) => (
-                      <li key={index} className="text-sm text-gray-500 flex items-start gap-2">
-                        <span className="text-gray-300">•</span>
-                        {constraint}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+        {/* Problem */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h1 className="text-2xl font-bold text-gray-900">{problem.title}</h1>
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full capitalize ${diff.bg} ${diff.color}`}>
+              {problem.difficulty}
+            </span>
+            <span className="text-xs text-gray-500 px-2.5 py-0.5 bg-gray-100 rounded-full capitalize">
+              {problem.category?.replace('_', ' ')}
+            </span>
+            {problem.topics?.map(topic => (
+              <span key={topic} className="text-xs text-gray-500 px-2.5 py-0.5 bg-gray-50 rounded-full">
+                {topic}
+              </span>
+            ))}
           </div>
+          <p className="text-gray-600 leading-relaxed mt-4 whitespace-pre-wrap">{problem.description}</p>
 
-          {/* Right Column - Code Editor */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <Code className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">Solution</span>
-                </div>
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5" />
-                      Run & Submit
-                    </>
-                  )}
-                </button>
-              </div>
-              <div className="p-4">
-                <textarea
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="w-full h-[350px] font-mono text-sm p-4 bg-gray-900 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  spellCheck={false}
-                />
-              </div>
-            </div>
-
-            {output && (
-              <div className={`p-4 rounded-xl border ${
-                output.includes('✅') ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
-              }`}>
-                <p className={`font-medium flex items-center gap-2 ${
-                  output.includes('✅') ? 'text-emerald-700' : 'text-red-700'
-                }`}>
-                  {output.includes('✅') ? (
-                    <Check className="w-4 h-4" />
-                  ) : (
-                    <X className="w-4 h-4" />
-                  )}
-                  {output}
-                </p>
-              </div>
+          {/* Actions */}
+          <div className="flex flex-wrap items-center gap-3 mt-6">
+            {problem.external_url && (
+              <a
+                href={problem.external_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Solve on LeetCode
+              </a>
             )}
-
-            {problem.status === 'solved' && (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <div className="flex items-center gap-2 text-emerald-700">
-                  <CheckCircle className="w-5 h-5" />
-                  <span className="font-medium">Problem Solved!</span>
-                  <span className="text-sm text-emerald-600 ml-2">Great job! 🎉</span>
-                </div>
-              </div>
-            )}
+            <button
+              onClick={handleSolveWithAI}
+              disabled={solving}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors text-sm font-medium disabled:opacity-60"
+            >
+              {solving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {solving ? 'Solving…' : 'Solve with AI'}
+            </button>
           </div>
         </div>
+
+        {/* AI solution */}
+        {solveError && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            {solveError}
+          </div>
+        )}
+        {solving && (
+          <div className="mt-4 p-6 bg-white border border-gray-200 rounded-xl flex items-center gap-3 text-gray-500">
+            <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+            The AI is working through the problem — approach, code, complexity, and a dry run…
+          </div>
+        )}
+        {solution && !solving && (
+          <div className="mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
+              <Sparkles className="w-4 h-4 text-indigo-600" />
+              <span className="font-semibold text-gray-900">AI Solution & Dry Run</span>
+            </div>
+            <pre className="p-5 text-sm text-gray-800 whitespace-pre-wrap font-sans leading-relaxed overflow-x-auto">
+              {solution}
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   );

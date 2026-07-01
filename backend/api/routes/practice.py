@@ -15,6 +15,7 @@ import logging
 from api.deps import get_authenticated_user
 from core.database import get_db
 from models.schemas import User
+from services.llm_service import llm
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -48,6 +49,10 @@ class ProblemResponse(BaseModel):
 
 class ProgressUpdate(BaseModel):
     status: Status
+
+
+class SolveResponse(BaseModel):
+    solution: str  # markdown
 
 
 # ---------- Helpers ----------
@@ -168,6 +173,66 @@ async def set_progress(
     except Exception as e:
         logger.error(f"Error updating progress for {problem_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to update progress")
+
+
+@router.post("/problems/{problem_id}/solve", response_model=SolveResponse)
+async def solve_problem(
+    problem_id: str,
+    current_user: User = Depends(get_authenticated_user),
+):
+    """Have the AI solve, explain, and dry-run a problem (category-aware)."""
+    if not ObjectId.is_valid(problem_id):
+        raise HTTPException(status_code=400, detail="Invalid problem ID format")
+    if llm is None:
+        raise HTTPException(status_code=503, detail="AI solver is not available")
+    try:
+        db = get_db()
+        problem = await db.practice_problems.find_one({"_id": ObjectId(problem_id)})
+        if not problem:
+            raise HTTPException(status_code=404, detail="Problem not found")
+
+        category = problem.get("category", "dsa")
+        if category == "dsa":
+            instructions = (
+                "Solve this coding problem. Answer in markdown with these sections:\n"
+                "## Approach — the intuition and the optimal strategy\n"
+                "## Solution — clean, well-commented Python code in a fenced code block\n"
+                "## Complexity — time and space complexity, with a one-line why\n"
+                "## Dry Run — step through the code on a concrete example input, "
+                "showing how the variables/state change at each step"
+            )
+        elif category == "system_design":
+            instructions = (
+                "Give a strong system-design answer in markdown with these sections:\n"
+                "## Requirements (functional & non-functional)\n"
+                "## High-Level Architecture\n"
+                "## Key Components & Data Model\n"
+                "## Scaling & Trade-offs"
+            )
+        else:  # interview
+            instructions = (
+                "Give an excellent sample answer in markdown with these sections:\n"
+                "## How to Approach\n"
+                "## Sample Answer (use the STAR method where relevant)\n"
+                "## Tips"
+            )
+
+        prompt_text = (
+            "You are an expert coding-interview coach.\n\n"
+            f"Problem: {problem.get('title', '')}\n"
+            f"Category: {category}\n"
+            f"Details: {problem.get('description', '')}\n\n"
+            f"{instructions}\n\n"
+            "Be clear, correct, and educational."
+        )
+
+        response = llm.invoke(prompt_text)
+        return SolveResponse(solution=response.content)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI solve failed for {problem_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate a solution")
 
 
 @router.get("/stats")
