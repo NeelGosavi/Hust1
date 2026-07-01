@@ -44,6 +44,7 @@ class ProblemResponse(BaseModel):
     topics: List[str]
     description: str
     external_url: Optional[str] = None
+    must_do: bool = False
     status: Status = "todo"  # the requesting student's progress
 
 
@@ -71,6 +72,7 @@ def _to_response(problem: dict, status: str = "todo") -> ProblemResponse:
         topics=problem.get("topics", []),
         description=problem.get("description", ""),
         external_url=problem.get("external_url"),
+        must_do=problem.get("must_do", False),
         status=status,
     )
 
@@ -84,7 +86,8 @@ async def list_problems(
     difficulty: Optional[Difficulty] = Query(None),
     topic: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    must_do: Optional[bool] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
 ):
     """Browse the problem bank with filters, merged with the student's status."""
     try:
@@ -96,6 +99,8 @@ async def list_problems(
             query["difficulty"] = difficulty
         if topic:
             query["topics"] = topic
+        if must_do is not None:
+            query["must_do"] = must_do
         if search:
             query["title"] = {"$regex": search, "$options": "i"}
 

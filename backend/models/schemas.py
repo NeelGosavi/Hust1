@@ -123,6 +123,7 @@ class PracticeProblem(BaseModel):
     topics: List[str] = []
     description: str = ""
     external_url: Optional[str] = None  # e.g. a leetcode.com link
+    must_do: bool = False  # part of the curated must-do list
     created_by: Optional[str] = None  # professor clerk_id
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
