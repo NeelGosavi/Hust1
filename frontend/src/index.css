@@ -103,6 +103,15 @@
     color: #f8fafc;
     min-height: 100vh;
   }
+  /* The app's default text is light, but most form controls sit on white
+     backgrounds — give them readable dark text by default. Any Tailwind
+     text-* utility (e.g. text-white on dark inputs) still overrides this. */
+  input, textarea, select {
+    color: #111827;
+  }
+  input::placeholder, textarea::placeholder {
+    color: #9ca3af;
+  }
 }
 
 /* Glass Panel - Matches your theme */

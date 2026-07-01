@@ -66,7 +66,8 @@ export function QuizModal({ courseId, onSubmit, onClose, isOpen = true }: QuizMo
 
   const handleAnswerSelect = (questionIndex: number, answerIndex: number) => {
     const newAnswers = [...answers];
-    newAnswers[questionIndex] = answerIndex.toString();
+    // Backend grades by comparing the selected option TEXT to the correct answer.
+    newAnswers[questionIndex] = questions[questionIndex].options[answerIndex];
     setAnswers(newAnswers);
   };
 
@@ -184,14 +185,14 @@ export function QuizModal({ courseId, onSubmit, onClose, isOpen = true }: QuizMo
             key={index}
             onClick={() => handleAnswerSelect(currentQuestion, index)}
             className={`w-full text-left p-3 rounded-lg border transition-all ${
-              answers[currentQuestion] === index.toString()
+              answers[currentQuestion] === option
                 ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
                 : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
             }`}
           >
             <div className="flex items-center gap-3">
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium ${
-                answers[currentQuestion] === index.toString()
+                answers[currentQuestion] === option
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-600'
               }`}>

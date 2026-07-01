@@ -4,27 +4,23 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 60000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // NOTE: don't hard-set Content-Type here. axios auto-sets application/json for
+  // object bodies, and for FormData (résumé upload) it must be left unset so the
+  // browser adds the multipart boundary. A forced application/json default makes
+  // axios serialize FormData to JSON -> the file is dropped -> backend 422.
 });
 
-// Request interceptor for auth
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Response interceptor for error handling
+// Response interceptor for error logging. Auth state is owned by Clerk, so we
+// don't hard-redirect on 401 (that would full-page reload to the landing page).
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized
-      window.location.href = '/login';
+    if (error.response) {
+      console.error('API Error:', {
+        status: error.response.status,
+        url: error.config?.url,
+        data: error.response.data,
+      });
     }
     return Promise.reject(error);
   }

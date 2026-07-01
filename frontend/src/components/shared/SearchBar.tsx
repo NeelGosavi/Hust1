@@ -18,7 +18,7 @@ export function SearchBar({
   debounceDelay = 300 
 }: SearchBarProps) {
   const [localValue, setLocalValue] = React.useState(value);
-  const timeoutRef = React.useRef<NodeJS.Timeout>();
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   React.useEffect(() => {
     setLocalValue(value);

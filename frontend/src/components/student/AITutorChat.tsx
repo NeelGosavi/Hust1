@@ -29,18 +29,25 @@ export function AITutorChat({ courseId, className = '' }: AITutorChatProps) {
   }, [messages]);
 
   const loadConversation = async () => {
+    const greeting: Message = {
+      role: 'assistant',
+      content: '👋 Hi! I\'m your AI tutor. Ask me anything about this course!',
+    };
     try {
       const response = await studentApi.getTutorConversation(courseId);
-      if (response.data.length > 0) {
-        setMessages(response.data);
+      const history = response.data?.messages || [];
+      if (history.length > 0) {
+        // Backend messages are { role: 'user'|'tutor', text }.
+        setMessages(history.map((m: any) => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.text ?? m.content ?? '',
+        })));
       } else {
-        setMessages([{
-          role: 'assistant',
-          content: '👋 Hi! I\'m your AI tutor. Ask me anything about this course!'
-        }]);
+        setMessages([greeting]);
       }
     } catch (error) {
       console.error('Error loading conversation:', error);
+      setMessages([greeting]);
     }
   };
 
@@ -82,7 +89,7 @@ export function AITutorChat({ courseId, className = '' }: AITutorChatProps) {
         <Bot className="w-8 h-8 text-blue-600" />
         <div>
           <h3 className="font-semibold text-gray-900">AI Tutor</h3>
-          <p className="text-xs text-gray-500">Powered by Gemini</p>
+          <p className="text-xs text-gray-500">Powered by AI</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">

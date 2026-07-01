@@ -10,15 +10,9 @@ export const careerApi = {
   
   uploadResume: (file: File) => {
     const formData = new FormData();
-    // Try both field names - backend will pick the one it expects
     formData.append('file', file);
-    formData.append('resume', file);
-    
-    return apiClient.post('/career/upload-resume', formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type manually — the browser adds the multipart boundary.
+    return apiClient.post('/career/upload-resume', formData);
   },
   
   analyzeSkills: (resumeText: string, jobId: string) =>

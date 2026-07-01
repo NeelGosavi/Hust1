@@ -1,7 +1,7 @@
 // src/components/student/JobCard.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, MapPin, Clock, DollarSign, Briefcase, ChevronRight } from 'lucide-react';
+import { Building2, MapPin, Clock, DollarSign, Briefcase, ChevronRight, TrendingUp } from 'lucide-react';
 
 interface JobCardProps {
   job: {

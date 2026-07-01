@@ -7,7 +7,7 @@ import { QuizModal } from '../components/student/QuizModal';
 import { BookOpen, MessageCircle, ClipboardList, ChevronLeft, CheckCircle, Circle, Clock } from 'lucide-react';
 
 export default function StudentCourseView() {
-  const { id } = useParams<{ id: string }>();
+  const { courseId: id } = useParams<{ courseId: string }>();
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'content' | 'tutor' | 'quiz'>('content');
@@ -71,7 +71,7 @@ export default function StudentCourseView() {
               {course.progress || 0}% Complete
             </span>
             <span className="text-sm text-gray-500">
-              Instructor: {course.instructor?.name || 'Unknown'}
+              Instructor: {course.professor_name || 'Unknown'}
             </span>
           </div>
         </div>
@@ -118,32 +118,37 @@ export default function StudentCourseView() {
 
           <div className="p-6">
             {activeTab === 'content' && (
-              <div className="space-y-4">
-                {course.modules?.map((module: any, index: number) => (
-                  <div key={module.id} className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="space-y-6">
+                {/* Slides */}
+                {course.slides?.map((slide: any, index: number) => (
+                  <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
                     <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                      <h3 className="font-semibold text-gray-900">Module {index + 1}: {module.title}</h3>
+                      <h3 className="font-semibold text-gray-900">Slide {index + 1}: {slide.title}</h3>
                     </div>
-                    <div className="p-4 space-y-2">
-                      {module.lessons?.map((lesson: any) => (
-                        <div key={lesson.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            {lesson.completed ? (
-                              <CheckCircle className="w-4 h-4 text-emerald-500" />
-                            ) : (
-                              <Circle className="w-4 h-4 text-gray-300" />
-                            )}
-                            <span className="text-gray-700">{lesson.title}</span>
-                          </div>
-                          <span className="text-sm text-gray-400 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" />
-                            {lesson.duration || 5}min
-                          </span>
-                        </div>
-                      ))}
+                    <div className="p-4">
+                      <p className="text-gray-700 whitespace-pre-wrap">{slide.content}</p>
+                      {slide.image_suggestion && (
+                        <p className="mt-3 text-xs text-gray-400 italic">🎨 {slide.image_suggestion}</p>
+                      )}
                     </div>
                   </div>
                 ))}
+
+                {/* Full lecture script */}
+                {course.script && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                      <h3 className="font-semibold text-gray-900">Lecture Script</h3>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{course.script}</p>
+                    </div>
+                  </div>
+                )}
+
+                {!course.slides?.length && !course.script && (
+                  <p className="text-gray-400 text-center py-8">No content available for this course.</p>
+                )}
               </div>
             )}
 
