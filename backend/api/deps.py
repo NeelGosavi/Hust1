@@ -74,12 +74,13 @@ async def get_current_user(request: Request) -> User:
                 last_name = payload.get("last_name", "")
                 name = f"{first_name} {last_name}".strip() or "Unknown User"
             
-            # Create new user
+            # Create new user (role defaults to student until they onboard)
             new_user = {
                 "clerk_id": clerk_id,
                 "email": email,
                 "name": name,
-                "role": "student",  # Default role, can be updated later
+                "role": "student",
+                "onboarded": False,  # prompt for role selection on first login
                 "created_at": datetime.utcnow()
             }
             

@@ -58,8 +58,9 @@ app.add_middleware(
 
 # Import and include routers
 try:
-    from api.routes import professor, student, career, practice
+    from api.routes import professor, student, career, practice, user
 
+    app.include_router(user.router, prefix="/api/user", tags=["User"])
     app.include_router(professor.router, prefix="/api/professor", tags=["Professor"])
     app.include_router(student.router, prefix="/api/student", tags=["Student"])
     app.include_router(career.router, prefix="/api/career", tags=["Career"])

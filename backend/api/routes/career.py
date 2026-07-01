@@ -80,9 +80,9 @@ class ApplicationStatusUpdate(BaseModel):
 
 # ---------- Helpers ----------
 
-def _require_professor(user: User) -> None:
-    if user.role != "professor":
-        raise HTTPException(status_code=403, detail="Only professors can manage jobs")
+def _require_hiring(user: User) -> None:
+    if user.role != "hiring":
+        raise HTTPException(status_code=403, detail="Only recruiters (hiring role) can manage jobs")
 
 
 async def _get_job_or_404(db, job_id: str) -> dict:
@@ -135,8 +135,8 @@ async def get_job(job_id: str, current_user: User = Depends(get_authenticated_us
 
 @router.post("/jobs", response_model=JobResponse, status_code=201)
 async def create_job(body: JobCreate, current_user: User = Depends(get_authenticated_user)):
-    """Add a job listing (professors only)."""
-    _require_professor(current_user)
+    """Add a job listing (recruiters / hiring role only)."""
+    _require_hiring(current_user)
     try:
         db = get_db()
         doc = {
@@ -159,8 +159,8 @@ async def create_job(body: JobCreate, current_user: User = Depends(get_authentic
 
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str, current_user: User = Depends(get_authenticated_user)):
-    """Delete a job listing (professors only)."""
-    _require_professor(current_user)
+    """Delete a job listing (recruiters / hiring role only)."""
+    _require_hiring(current_user)
     if not ObjectId.is_valid(job_id):
         raise HTTPException(status_code=400, detail="Invalid job ID format")
     try:
@@ -334,7 +334,7 @@ async def my_applications(current_user: User = Depends(get_authenticated_user)):
 @router.get("/jobs/{job_id}/applicants", response_model=List[ApplicantResponse])
 async def job_applicants(job_id: str, current_user: User = Depends(get_authenticated_user)):
     """Applicants for a job (professors only), joined with student info."""
-    _require_professor(current_user)
+    _require_hiring(current_user)
     try:
         db = get_db()
         await _get_job_or_404(db, job_id)
@@ -376,7 +376,7 @@ async def update_application_status(
     current_user: User = Depends(get_authenticated_user),
 ):
     """Accept/reject an application (professors only)."""
-    _require_professor(current_user)
+    _require_hiring(current_user)
     if not ObjectId.is_valid(application_id):
         raise HTTPException(status_code=400, detail="Invalid application ID format")
     try:

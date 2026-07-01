@@ -60,7 +60,8 @@ class User(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     clerk_id: str
     email: str
-    role: str  # "professor" or "student"
+    role: str = "student"  # "student" | "professor" | "hiring"
+    onboarded: bool = False  # has the user picked a role yet?
     name: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
