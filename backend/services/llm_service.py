@@ -1,6 +1,6 @@
 # backend/services/llm_service.py
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from core.config import settings
@@ -14,22 +14,23 @@ logger = logging.getLogger(__name__)
 
 # Initialize the LLM using settings from config
 try:
-    if not settings.GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY is not set in environment variables")
-    
-    # Use the model configured in settings (gemini-pro is retired)
-    MODEL_NAME = settings.GEMINI_MODEL
+    if not settings.NARA_API_KEY:
+        raise ValueError("NARA_API_KEY is not set in environment variables")
 
-    llm = ChatGoogleGenerativeAI(
+    # NaraRouter is OpenAI-compatible, so we use ChatOpenAI with a custom base_url.
+    MODEL_NAME = settings.NARA_MODEL
+
+    llm = ChatOpenAI(
         model=MODEL_NAME,
-        google_api_key=settings.GEMINI_API_KEY,
+        api_key=settings.NARA_API_KEY,
+        base_url=settings.NARA_BASE_URL,
         temperature=settings.GEMINI_TEMPERATURE,
         timeout=120,
         max_retries=3,
     )
-    logger.info(f"✅ Gemini AI initialized successfully with model: {MODEL_NAME}")
+    logger.info(f"✅ LLM initialized successfully with model: {MODEL_NAME} (NaraRouter)")
 except Exception as e:
-    logger.error(f"❌ Failed to initialize Gemini AI: {e}")
+    logger.error(f"❌ Failed to initialize LLM: {e}")
     llm = None
 
 class SlideSuggestion(BaseModel):
@@ -108,7 +109,7 @@ async def generate_course_content(request_text: str) -> CourseGenerationOutput:
         
         # Invoke the LLM
         try:
-            logger.info(f"⏳ Calling Gemini API with model: {MODEL_NAME}...")
+            logger.info(f"⏳ Calling LLM with model: {MODEL_NAME}...")
             response = llm.invoke(_input.to_string())
             logger.info(f"✅ LLM response received ({len(response.content)} characters)")
         except Exception as e:

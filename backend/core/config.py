@@ -18,10 +18,15 @@ class Settings(BaseSettings):
     MONGODB_URL: str = "mongodb://localhost:27017"
     DATABASE_NAME: str = "edu_platform"
     
-    # Gemini AI
-    GEMINI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.5-flash"  # current GA model; gemini-pro is retired
-    GEMINI_TEMPERATURE: float = 0.7
+    # LLM provider — NaraRouter (OpenAI-compatible gateway; Claude/Mistral models)
+    NARA_API_KEY: str = ""
+    NARA_BASE_URL: str = "https://router.bynara.id/v1"
+    NARA_MODEL: str = "claude-haiku-4.5"
+
+    # Legacy Gemini settings (no longer used; kept optional for back-compat)
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_TEMPERATURE: float = 0.7  # reused as the LLM temperature
     
     # Clerk Authentication
     CLERK_SECRET_KEY: str
@@ -94,8 +99,8 @@ def validate_settings():
     errors = []
     
     # Check required settings
-    if not settings.GEMINI_API_KEY:
-        errors.append("GEMINI_API_KEY is required but not set in .env file")
+    if not settings.NARA_API_KEY:
+        errors.append("NARA_API_KEY is required but not set in .env file")
     
     if not settings.CLERK_SECRET_KEY:
         errors.append("CLERK_SECRET_KEY is required but not set in .env file")

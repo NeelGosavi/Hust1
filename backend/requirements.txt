@@ -7,8 +7,7 @@ python-multipart
 python-jose[cryptography]
 clerk-backend-api
 langchain
-langchain-google-genai
-faiss-cpu
+langchain-openai
 qrcode
 Pillow
 pypdf
