@@ -45,6 +45,7 @@ class ResumeJobRequest(BaseModel):
 
 class SkillGapResponse(BaseModel):
     match_percentage: int
+    matched_skills: List[str] = []
     missing_skills: List[str]
     recommendations: str
 
@@ -213,7 +214,8 @@ async def analyze_skills(
 
             Provide a JSON output ONLY with exactly these keys:
             "match_percentage" (integer 0-100),
-            "missing_skills" (list of strings),
+            "matched_skills" (list of the required skills the resume DOES have),
+            "missing_skills" (list of the required skills the resume is missing),
             "recommendations" (short paragraph).
             No markdown blocks, just the JSON.
             """,
@@ -227,7 +229,12 @@ async def analyze_skills(
         raw = response.content.replace('```json', '').replace('```', '').strip()
         analysis = json.loads(raw)
 
-        return SkillGapResponse(**analysis)
+        return SkillGapResponse(
+            match_percentage=int(analysis.get("match_percentage", 0)),
+            matched_skills=analysis.get("matched_skills", []),
+            missing_skills=analysis.get("missing_skills", []),
+            recommendations=analysis.get("recommendations", ""),
+        )
 
     except HTTPException:
         raise

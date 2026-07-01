@@ -133,7 +133,13 @@ export default function StudentResume() {
     setAnalyzing(true);
     try {
       const response = await careerApi.analyzeSkills(resumeText, selectedJobId);
-      setAnalysis(response.data);
+      const d = response.data;
+      // Backend returns snake_case; map to the shape this page renders.
+      setAnalysis({
+        matchPercentage: d.match_percentage ?? 0,
+        matchedSkills: d.matched_skills ?? [],
+        missingSkills: d.missing_skills ?? [],
+      });
     } catch (error) {
       console.error('Error analyzing skills:', error);
       alert('Failed to analyze skills. Please try again.');
