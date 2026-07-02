@@ -3,6 +3,7 @@ import { Routes, Route, Link } from 'react-router-dom';
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, RedirectToSignIn } from '@clerk/clerk-react';
 import { useEffect, useState } from 'react';
 import { apiClient, setupInterceptors } from './api/client';
+import { OnboardingGate } from './components/OnboardingGate';
 import ProfessorDashboard from './pages/ProfessorDashboard';
 import ProfessorCourseDetail from './pages/ProfessorCourseDetail';
 import ProfessorCourses from './pages/ProfessorCourses';
@@ -314,6 +315,9 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-950">
       <Navbar />
+      <SignedIn>
+        <OnboardingGate />
+      </SignedIn>
       <main>
         <Routes>
           <Route path="/" element={<LandingPage />} />
