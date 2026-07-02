@@ -53,7 +53,10 @@ class Settings(BaseSettings):
     ]
     ALLOWED_METHODS: List[str] = ["*"]
     ALLOWED_HEADERS: List[str] = ["*"]
-    
+    # Extra allowed origins for deployed frontends, comma-separated
+    # (e.g. "https://my-app.vercel.app,https://my-app-git-main.vercel.app")
+    EXTRA_CORS_ORIGINS: str = ""
+
     # API Settings
     API_PREFIX: str = "/api"
     API_V1_PREFIX: str = "/api/v1"
@@ -75,7 +78,20 @@ class Settings(BaseSettings):
     
     # Testing Mode
     USE_TEST_AUTH: bool = False
-    
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """Effective CORS allow-list: local defaults + the deployed FRONTEND_URL
+        + any EXTRA_CORS_ORIGINS. Set FRONTEND_URL to your Vercel URL in prod."""
+        origins = list(self.ALLOWED_ORIGINS)
+        if self.FRONTEND_URL and self.FRONTEND_URL not in origins:
+            origins.append(self.FRONTEND_URL)
+        if self.EXTRA_CORS_ORIGINS:
+            origins.extend(
+                o.strip() for o in self.EXTRA_CORS_ORIGINS.split(",") if o.strip()
+            )
+        return origins
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
