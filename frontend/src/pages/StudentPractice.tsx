@@ -24,7 +24,11 @@ export default function StudentPractice() {
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
-  const categories = ['Algorithms', 'Data Structures', 'System Design', 'Behavioral'];
+  const categories = [
+    { value: 'dsa', label: 'DSA' },
+    { value: 'system_design', label: 'System Design' },
+    { value: 'interview', label: 'Interview' },
+  ];
   const difficulties = ['Easy', 'Medium', 'Hard'];
   const statuses = ['todo', 'attempted', 'solved'];
 
@@ -175,7 +179,7 @@ export default function StudentPractice() {
             >
               <option value="">All Categories</option>
               {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}
             </select>
             <select
